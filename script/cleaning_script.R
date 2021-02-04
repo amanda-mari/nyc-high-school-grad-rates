@@ -13,7 +13,7 @@ library("purrr")
 source("script/functions_script.R")
 
 # Load data ---------------------------
-all_sheets <- readxl::excel_sheets(path = here::here("data/raw/raw_data.xlsx"))
+all_sheets <- readxl::excel_sheets(path = here::here("data/raw/raw_graduation_data.xlsx"))
 
 
 # I only need the following sheets: "All," "ELL," "SWD," "Ethnicity," "Gender,"
@@ -24,10 +24,10 @@ needed_sheets <- all_sheets[all_sheets %in% c(
   "Gender", "Poverty", "Ever ELL"
 )]
 
-hs_data <- lapply(
+school_graduation_data <- lapply(
   needed_sheets,
   read_excel_sheets,
-  here::here("data/raw/raw_data.xlsx")
+  here::here("data/raw/raw_graduation_data.xlsx")
 )
 
 # Rename Columns ---------------------------
@@ -67,18 +67,19 @@ new_column_names <- c(
   "group_dropout_total", "percent_cohort_dropout"
 )
 
-hs_data <- lapply(hs_data, setnames, old_column_names, new_column_names)
+school_graduation_data <- lapply(school_graduation_data, setnames,
+                                 old_column_names, new_column_names)
 
 # Data Merging ---------------------------
 
 # Merge all sheets into one
 
-combined_data <- hs_data %>% reduce(full_join)
+school_graduation_data <- school_graduation_data %>% reduce(full_join)
 
-# The "id" column is a string of characters pasted together from the other 
+# The "id" column is a string of characters pasted together from the other
 # columns, we do not need it
 
-combined_data <- subset(combined_data, select = -id)
+school_graduation_data <- subset(school_graduation_data, select = -id)
 
 # Data Wrangling ---------------------------
 # The data is currently in wide format with several columns.
@@ -86,7 +87,7 @@ combined_data <- subset(combined_data, select = -id)
 
 # reorder columns first
 
-combined_data <- combined_data[, c(
+school_graduation_data <- school_graduation_data[, c(
   "dbn", "school_name", "cohort_start", "cohort_type",
   "cohort_group", "group_size", "group_grad_total",
   "group_grad_rate", "group_regents_total",
@@ -100,9 +101,9 @@ combined_data <- combined_data[, c(
 )]
 
 # temporarily changing 'group size' to be a character
-combined_data$group_size <- as.character(combined_data$group_size)
+school_graduation_data$group_size <- as.character(school_graduation_data$group_size)
 
-combined_data <- combined_data %>% pivot_longer(!c(
+school_graduation_data <- school_graduation_data %>% pivot_longer(!c(
   dbn, school_name, cohort_start,
   cohort_type, cohort_group
 ),
@@ -113,105 +114,135 @@ values_to = "value"
 # Replacing Missing Values with NA ---------------------------
 
 
-nrow(combined_data[combined_data$value == "s", ])
+nrow(school_graduation_data[school_graduation_data$value == "s", ])
 
 # Over 2 million rows do not have a numeric value for the group attribute
 
-combined_data <- combined_data %>%
+school_graduation_data <- school_graduation_data %>%
   replace_with_na(replace = list(value = "s"))
 
-combined_data$value <- as.numeric(combined_data$value)
+school_graduation_data$value <- as.numeric(school_graduation_data$value)
 
-nrow(combined_data[is.na(combined_data$value), ])
+nrow(school_graduation_data[is.na(school_graduation_data$value), ])
 
 # switching to NAs successful
 
 # Converting Column Types ---------------------------
-unique(combined_data$dbn)
-unique(combined_data$school_name)
-unique(combined_data$cohort_type)
-unique(combined_data$cohort_group)
+unique(school_graduation_data$dbn)
+unique(school_graduation_data$school_name)
+unique(school_graduation_data$cohort_type)
+unique(school_graduation_data$cohort_group)
 
 # first switching school names to lowercase for readability
-combined_data$school_name <- tolower(combined_data$school_name)
+school_graduation_data$school_name <- tolower(school_graduation_data$school_name)
 
 # The above columns can be changed to factors
 
 columns_to_factor <- c("dbn", "school_name", "cohort_type", "cohort_group")
 
-combined_data[columns_to_factor] <- lapply(combined_data[columns_to_factor],
-                                           factor)
+school_graduation_data[columns_to_factor] <- lapply(
+  school_graduation_data[columns_to_factor],
+  factor
+)
 
-sapply(combined_data, class)
+sapply(school_graduation_data, class)
 
 # Obtaining School's Addresses (PDF Scraping) --------------------------
-school_dbn <- as.character(unique(combined_data$dbn))
+school_dbn <- as.character(unique(school_graduation_data$dbn))
 
 # 553 schools to find addresses for
 
-pull_hs_dir_pdf <-list.files(path=here::here("data/raw/"),
-                                        pattern="^nyc_hs_directory_.*?\\.pdf$",
-                                        full.names = TRUE)
+school_directory_pdfs <- list.files(
+  path = here::here("data/raw/"),
+  pattern = "^nyc_hs_directory_.*?\\.pdf$",
+  full.names = TRUE
+)
 
-read_in_pdfs <-list()
 
-# read all pdfs into a list and name each element of the list as the year of the high school 
-# directory (which is within the file name)
-for (i in seq_len(length(pull_hs_dir_pdf))) {
-  read_in_pdfs[[i]] <-pdftools::pdf_data(pull_hs_dir_pdf[[i]])
-  names(read_in_pdfs)[[i]] <-paste0("directory_",str_extract(pull_hs_dir_pdf[[i]], "\\d{4}"))
+school_directory_data <- lapply(school_directory_pdfs, read_pdf_data)
+
+for (i in seq_len(length(school_directory_pdfs))) {
+  names(school_directory_data)[[i]] <- 
+    paste0("directory_", str_extract(school_directory_pdfs[[i]], "\\d{4}"))
 }
 
-# get a column for the year vector
-for (i in seq_along(read_in_pdfs)) {
-  for (j in seq_along(read_in_pdfs[[i]])) {
-    read_in_pdfs[[i]][[j]]$year <-names(read_in_pdfs)[[i]]
+
+# remove blank pages
+school_directory_data <- lapply(school_directory_data, remove_blank_pages)
+
+
+
+# make a column for the year vector and only have the year appear once in 
+#the first row of each tibble
+for (i in seq_along(school_directory_data)) {
+  for (j in seq_along(school_directory_data[[i]])) {
+    for (k in seq_len(nrow(school_directory_data[[i]][[j]]))) {
+      if (k == 1) {
+        school_directory_data[[i]][[j]][k, "year"] <- 
+          paste(str_extract(names(school_directory_data)[[i]], "\\d{4}"))
+      }
+      else {
+        school_directory_data[[i]][[j]][k, "year"] <- NA
+      }
+    }
   }
 }
 
-# only want the year to repeat once in this vector
-for (i in seq_along(read_in_pdfs)) {
-  for (j in seq_along(read_in_pdfs[[i]])){
-    for (k in 1:nrow(read_in_pdfs[[i]][[j]])) {
-             if (k==1) {
-             read_in_pdfs[[i]][[j]][k, "year"] <-paste(names(read_in_pdfs)[[i]])}
-             else {
-             read_in_pdfs[[i]][[j]][k, "year"] <-NA
-               }
-         }
-  }
-}
 # remove the primary list division (by directory year)
-read_in_pdfs <- read_in_pdfs %>% flatten()
+school_directory_data <- school_directory_data %>% flatten()
 
-#initialize lists to pull out information we need: directory years, school dbns and addresses
-# using for loops
-dir_text <- list()
-dir_year <-list()
-dir_string <- list()
-dir_location <- list()
+# initialize lists to pull out information we need: 
+# directory years, school dbns and addresses using for loops
+school_directory_text <- list()
+school_directory_year <- list()
 
 
-for (i in seq_along(read_in_pdfs)) {
-  dir_text[[i]]<- read_in_pdfs[[i]]$text
-  dir_year[[i]] <-read_in_pdfs[[i]]$year
-  dir_string[[i]]<- paste(dir_text[[i]], collapse = " ")
+
+
+for (i in seq_along(school_directory_data)) {
+  school_directory_text[[i]] <- school_directory_data[[i]]$text
+  school_directory_year[[i]] <- school_directory_data[[i]]$year
+  school_directory_text[[i]] <- paste(school_directory_text[[i]], collapse = " ")
 }
 
-dir_all_text <-as.data.frame(unlist(dir_string))
-dir_year <-as.data.frame(unlist(dir_year))
-dir_year$element_number <-seq_len(nrow(dir_year))
-colnames(dir_year)[1] <-"directory_year"
-dir_year <-dir_year[!is.na(dir_year$directory_year),]
+school_directory_text <- as.data.frame(unlist(school_directory_text))
+school_directory_year <- as.data.frame(unlist(school_directory_year))
+school_directory_year$element_number <- seq_len(nrow(school_directory_year))
+colnames(school_directory_year)[1] <- "year"
+school_directory_year <-school_directory_year[!is.na(school_directory_year$year), ]
 
-table(dir_year$directory_year) #this is correct, 508 pages in 2011 directory and 677 in 2016
+table(school_directory_year$year) 
+# this is correct, 597 non-blank pages in 2008, 508 in 2011, and 676 in 2016
 
-dir_info <-cbind(dir_year,dir_all_text)
-colnames(dir_info)[3] <-"pdf_text"
+school_directory_data <- cbind(school_directory_year, school_directory_text)
+colnames(school_directory_data)[3] <- "pdf_text"
+school_directory_data <-subset(school_directory_data, select =c("year", "pdf_text"))
+
+# Cleaning School's Addresses --------------------------
+# The two manin components we want from the directory are each school's DBN and address.
+
+# The DBN is the district borough number of each school. It is 6 characters long. The DBN starts
+# with a 2 number combination for the district, then any of the following letters 'K' 'X' 'Q' 'M' 'R', 
+# depending on the school's borough. Finally, the DBN ends with a 2 digit number for the school
 
 
-#clean the page text based on how the directory is styled using regex
-dir_info <-dir_info %>%
-  filter(directory_year=="directory_2016") %>%
-  str_extract(pdf_text, "(?=DBN).*?(\\d{5})")
+# Each year of the directory is organized differently and not every page will have a dbn
+# and/or an address on it. Therefore, we will clean the pdf text by year using regex
+
+
+# 2008
+
+address_directory_2008 <-
+  str_extract(school_directory_data[school_directory_data$year==2008,"pdf_text"],"(?=Address:).*?(\\d{5})")
+dbn_directory_2008 <-
+  str_extract(school_directory_data[school_directory_data$year==2008,"pdf_text"],"[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
+school_directory_2008 <-as.data.frame(cbind(dbn_directory_2008, address_directory_2008))
+school_directory_2008$year <-rep(2008, nrow(school_directory_2008))
+school_directory_2008 <- school_directory_2008[!is.na(school_directory_2008$address_directory_2008), ]
+
+
+
+
+
+
 
