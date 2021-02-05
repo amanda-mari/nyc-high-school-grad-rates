@@ -7,8 +7,6 @@ library("naniar")
 library("pdftools")
 library("purrr")
 
-
-
 # Functions ---------------------------
 source("script/functions_script.R")
 
@@ -21,10 +19,9 @@ all_sheets <- readxl::excel_sheets(path = here::here("data/raw/raw_graduation_da
 
 needed_sheets <- all_sheets[all_sheets %in% c(
   "All", "ELL", "SWD", "Ethnicity",
-  "Gender", "Poverty", "Ever ELL"
-)]
+  "Gender", "Poverty", "Ever ELL")]
 
-school_graduation_data <- lapply(
+nyc_graduation_data <- lapply(
   needed_sheets,
   read_excel_sheets,
   here::here("data/raw/raw_graduation_data.xlsx")
@@ -67,19 +64,19 @@ new_column_names <- c(
   "group_dropout_total", "percent_cohort_dropout"
 )
 
-school_graduation_data <- lapply(school_graduation_data, setnames,
+nyc_graduation_data <- lapply(nyc_graduation_data, setnames,
                                  old_column_names, new_column_names)
 
 # Data Merging ---------------------------
 
 # Merge all sheets into one
 
-school_graduation_data <- school_graduation_data %>% reduce(full_join)
+nyc_graduation_data <- nyc_graduation_data %>% reduce(full_join)
 
 # The "id" column is a string of characters pasted together from the other
 # columns, we do not need it
 
-school_graduation_data <- subset(school_graduation_data, select = -id)
+nyc_graduation_data <- subset(nyc_graduation_data, select = -id)
 
 # Data Wrangling ---------------------------
 # The data is currently in wide format with several columns.
@@ -87,7 +84,7 @@ school_graduation_data <- subset(school_graduation_data, select = -id)
 
 # reorder columns first
 
-school_graduation_data <- school_graduation_data[, c(
+nyc_graduation_data <- nyc_graduation_data[, c(
   "dbn", "school_name", "cohort_start", "cohort_type",
   "cohort_group", "group_size", "group_grad_total",
   "group_grad_rate", "group_regents_total",
@@ -101,9 +98,9 @@ school_graduation_data <- school_graduation_data[, c(
 )]
 
 # temporarily changing 'group size' to be a character
-school_graduation_data$group_size <- as.character(school_graduation_data$group_size)
+nyc_graduation_data$group_size <- as.character(nyc_graduation_data$group_size)
 
-school_graduation_data <- school_graduation_data %>% pivot_longer(!c(
+nyc_graduation_data <- nyc_graduation_data %>% pivot_longer(!c(
   dbn, school_name, cohort_start,
   cohort_type, cohort_group
 ),
@@ -114,112 +111,112 @@ values_to = "value"
 # Replacing Missing Values with NA ---------------------------
 
 
-nrow(school_graduation_data[school_graduation_data$value == "s", ])
+nrow(nyc_graduation_data[nyc_graduation_data$value == "s", ])
 
 # Over 2 million rows do not have a numeric value for the group attribute
 
-school_graduation_data <- school_graduation_data %>%
+nyc_graduation_data <- nyc_graduation_data %>%
   replace_with_na(replace = list(value = "s"))
 
-school_graduation_data$value <- as.numeric(school_graduation_data$value)
+nyc_graduation_data$value <- as.numeric(nyc_graduation_data$value)
 
-nrow(school_graduation_data[is.na(school_graduation_data$value), ])
+nrow(nyc_graduation_data[is.na(nyc_graduation_data$value), ])
 
 # switching to NAs successful
 
 # Converting Column Types ---------------------------
-unique(school_graduation_data$dbn)
-unique(school_graduation_data$school_name)
-unique(school_graduation_data$cohort_type)
-unique(school_graduation_data$cohort_group)
+unique(nyc_graduation_data$dbn)
+unique(nyc_graduation_data$school_name)
+unique(nyc_graduation_data$cohort_type)
+unique(nyc_graduation_data$cohort_group)
 
 # first switching school names to lowercase for readability
-school_graduation_data$school_name <- tolower(school_graduation_data$school_name)
+nyc_graduation_data$school_name <- tolower(nyc_graduation_data$school_name)
 
 # The above columns can be changed to factors
 
 columns_to_factor <- c("dbn", "school_name", "cohort_type", "cohort_group")
 
-school_graduation_data[columns_to_factor] <- lapply(
-  school_graduation_data[columns_to_factor],
+nyc_graduation_data[columns_to_factor] <- lapply(
+  nyc_graduation_data[columns_to_factor],
   factor
 )
 
-sapply(school_graduation_data, class)
+sapply(nyc_graduation_data, class)
 
 # Obtaining School's Addresses (PDF Scraping) --------------------------
-school_dbn <- as.character(unique(school_graduation_data$dbn))
+school_dbn <- as.character(unique(nyc_graduation_data$dbn))
 
 # 553 schools to find addresses for
 
-school_directory_pdfs <- list.files(
+nyc_directory_pdfs <- list.files(
   path = here::here("data/raw/"),
   pattern = "^nyc_hs_directory_.*?\\.pdf$",
   full.names = TRUE
 )
 
 
-school_directory_data <- lapply(school_directory_pdfs, read_pdf_data)
+nyc_directory_data <- lapply(nyc_directory_pdfs, read_pdf_data)
 
-for (i in seq_len(length(school_directory_pdfs))) {
-  names(school_directory_data)[[i]] <- 
-    paste0("directory_", str_extract(school_directory_pdfs[[i]], "\\d{4}"))
+for (i in seq_len(length(nyc_directory_pdfs))) {
+  names(nyc_directory_data)[[i]] <- 
+    paste0("directory_", str_extract(nyc_directory_pdfs[[i]], "\\d{4}"))
 }
 
 
 # remove blank pages
-school_directory_data <- lapply(school_directory_data, remove_blank_pages)
+nyc_directory_data <- lapply(nyc_directory_data, remove_blank_pages)
 
 
 
 # make a column for the year vector and only have the year appear once in 
 #the first row of each tibble
-for (i in seq_along(school_directory_data)) {
-  for (j in seq_along(school_directory_data[[i]])) {
-    for (k in seq_len(nrow(school_directory_data[[i]][[j]]))) {
+for (i in seq_along(nyc_directory_data)) {
+  for (j in seq_along(nyc_directory_data[[i]])) {
+    for (k in seq_len(nrow(nyc_directory_data[[i]][[j]]))) {
       if (k == 1) {
-        school_directory_data[[i]][[j]][k, "year"] <- 
-          paste(str_extract(names(school_directory_data)[[i]], "\\d{4}"))
+        nyc_directory_data[[i]][[j]][k, "year"] <- 
+          paste(str_extract(names(nyc_directory_data)[[i]], "\\d{4}"))
       }
       else {
-        school_directory_data[[i]][[j]][k, "year"] <- NA
+        nyc_directory_data[[i]][[j]][k, "year"] <- NA
       }
     }
   }
 }
 
 # remove the primary list division (by directory year)
-school_directory_data <- school_directory_data %>% flatten()
+nyc_directory_data <- nyc_directory_data %>% flatten()
 
 # initialize lists to pull out information we need: 
 # directory years, school dbns and addresses using for loops
-school_directory_text <- list()
-school_directory_year <- list()
+nyc_directory_text <- list()
+nyc_directory_year <- list()
 
 
 
 
-for (i in seq_along(school_directory_data)) {
-  school_directory_text[[i]] <- school_directory_data[[i]]$text
-  school_directory_year[[i]] <- school_directory_data[[i]]$year
-  school_directory_text[[i]] <- paste(school_directory_text[[i]], collapse = " ")
+for (i in seq_along(nyc_directory_data)) {
+  nyc_directory_text[[i]] <- nyc_directory_data[[i]]$text
+  nyc_directory_year[[i]] <- nyc_directory_data[[i]]$year
+  nyc_directory_text[[i]] <- paste(nyc_directory_text[[i]], collapse = " ")
 }
 
-school_directory_text <- as.data.frame(unlist(school_directory_text))
-school_directory_year <- as.data.frame(unlist(school_directory_year))
-school_directory_year$element_number <- seq_len(nrow(school_directory_year))
-colnames(school_directory_year)[1] <- "year"
-school_directory_year <-school_directory_year[!is.na(school_directory_year$year), ]
+nyc_directory_text <- as.data.frame(unlist(nyc_directory_text))
+nyc_directory_year <- as.data.frame(unlist(nyc_directory_year))
+nyc_directory_year$element_number <- seq_len(nrow(nyc_directory_year))
+colnames(nyc_directory_year)[1] <- "year"
+nyc_directory_year <-nyc_directory_year[!is.na(nyc_directory_year$year), ]
 
-table(school_directory_year$year) 
+table(nyc_directory_year$year) 
 # this is correct, 597 non-blank pages in 2008, 508 in 2011, and 676 in 2016
 
-school_directory_data <- cbind(school_directory_year, school_directory_text)
-colnames(school_directory_data)[3] <- "pdf_text"
-school_directory_data <-subset(school_directory_data, select =c("year", "pdf_text"))
+nyc_directory_data <- cbind(nyc_directory_year, nyc_directory_text)
+colnames(nyc_directory_data)[3] <- "pdf_text"
+nyc_directory_data <-subset(nyc_directory_data, select =c("year", "pdf_text"))
 
 # Cleaning School's Addresses --------------------------
-# The two manin components we want from the directory are each school's DBN and address.
+# The two main components we want from the directory are each school's DBN and address.
 
 # The DBN is the district borough number of each school. It is 6 characters long. The DBN starts
 # with a 2 number combination for the district, then any of the following letters 'K' 'X' 'Q' 'M' 'R', 
@@ -230,19 +227,98 @@ school_directory_data <-subset(school_directory_data, select =c("year", "pdf_tex
 # and/or an address on it. Therefore, we will clean the pdf text by year using regex
 
 
-# 2008
-
-address_directory_2008 <-
-  str_extract(school_directory_data[school_directory_data$year==2008,"pdf_text"],"(?=Address:).*?(\\d{5})")
-dbn_directory_2008 <-
-  str_extract(school_directory_data[school_directory_data$year==2008,"pdf_text"],"[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
-school_directory_2008 <-as.data.frame(cbind(dbn_directory_2008, address_directory_2008))
-school_directory_2008$year <-rep(2008, nrow(school_directory_2008))
-school_directory_2008 <- school_directory_2008[!is.na(school_directory_2008$address_directory_2008), ]
 
 
+# Cleaning School's Addresses for 2008 --------------------------
+
+nyc_directory_address_2008 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2008,"pdf_text"],"(?<=Address: ).*?(\\d{5})")
+#some addresses still have the educational campus in them. They also have a special character
+
+
+nyc_directory_dbn_2008 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2008,"pdf_text"],"[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
+nyc_directory_2008 <-as.data.frame(cbind(nyc_directory_dbn_2008, nyc_directory_address_2008))
+nyc_directory_2008$year <-rep(2008, nrow(nyc_directory_2008))
+
+
+
+colnames(nyc_directory_2008) <-c("dbn","address","year")
+#nyc_directory_2008 <- nyc_directory_2008[!is.na(nyc_directory_2008$nyc_directory_address_2008), ]
+
+# Cleaning School's Addresses for 2011 --------------------------
+
+nyc_directory_address_2011 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2011,"pdf_text"],"(?=Address:).*?(\\d{5})")
+# there is a lot of text between the second to last part of the address (i.e. road, avenue, street) and the city & zip code
+# According to the NYC DOE, the letter in the middle of the DBN indicates which borough the school is in, so I will
+# only extract the beginning of the address and the zipcode, and later on use the DBN to get the borough
+
+
+#using common address terms like street and road to begin subsetting the string
+
+nyc_directory_address_start_2011 <-
+  str_extract(nyc_directory_address_2011,"(?<=Address: ).*?(Street|Road|Boulevard|Avenue|Place|Parkway|Drive)")
+
+nyc_directory_address_end_2011 <-
+  str_extract(nyc_directory_address_2011,"(?=, NY).*?(\\d{5})")
+
+
+nyc_directory_dbn_2011 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2011,"pdf_text"],"(?<=DBN )[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
+
+nyc_directory_2011 <-as.data.frame(cbind(nyc_directory_dbn_2011, nyc_directory_address_start_2011, nyc_directory_address_end_2011))
+nyc_directory_2011$year <-rep(2011, nrow(nyc_directory_2011))
+
+
+
+nyc_directory_2011 <-nyc_directory_2011 %>% mutate(borough=case_when(grepl("X",nyc_directory_dbn_2011) ~ "Bronx",
+                                                grepl("K",nyc_directory_dbn_2011) ~ "Brooklyn",
+                                                grepl("Q",nyc_directory_dbn_2011) ~ "Queens",
+                                                grepl("M",nyc_directory_dbn_2011) ~ "Manhattan",
+                                                grepl("R",nyc_directory_dbn_2011) ~ "Staten Island"
+                              ))
+
+nyc_directory_2011$address <-paste(nyc_directory_2011$nyc_directory_address_start_2011, nyc_directory_2011$borough,
+                                   nyc_directory_2011$nyc_directory_address_end_2011, sep = " ")
+
+nyc_directory_2011 <-subset(nyc_directory_2011, 
+                            select = -c(nyc_directory_address_start_2011, nyc_directory_address_end_2011, borough))
+
+nyc_directory_2011 <-nyc_directory_2011[,c(1,3,2)]
+
+colnames(nyc_directory_2011) <-c("dbn","address","year")
+# Cleaning School's Addresses for 2016 --------------------------
+nyc_directory_address_2016 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2016,"pdf_text"],"(?<=Address: ).*?(\\d{5})")
+
+nyc_directory_dbn_2016 <-
+  str_extract(nyc_directory_data[nyc_directory_data$year==2016,"pdf_text"],"(?<=DBN )[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
+
+nyc_directory_2016 <-as.data.frame(cbind(nyc_directory_dbn_2016, nyc_directory_address_2016))
+nyc_directory_2016$year <-rep(2016, nrow(nyc_directory_2016))
+
+colnames(nyc_directory_2016) <-c("dbn","address","year")
 
 
 
 
 
+# Combining the Directory Addresses --------------------------
+# I will be combining the directories back together using rbind, and if there are duplicate  DBNs, I will use the 
+# cleanest address for the school
+
+nyc_directory_data <-rbind(nyc_directory_2008, nyc_directory_2011, nyc_directory_2016)
+nyc_directory_data <-nyc_directory_data[order(nyc_directory_data$dbn),]
+nyc_directory_data <-nyc_directory_data[!is.na(nyc_directory_data$address),]
+
+#remove the rows from 2011 that have addresses that start with NA i.e NA Bronx,NY
+
+nyc_directory_data <-nyc_directory_data[!grepl("NA", nyc_directory_data$address), ]
+
+
+#count the number of times a dbn appears, if it is more than once keep the most recent address for it
+# since 2016 seems to be the cleanest.
+
+
+  
