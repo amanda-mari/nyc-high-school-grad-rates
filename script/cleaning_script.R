@@ -6,6 +6,8 @@ library("data.table")
 library("naniar")
 library("pdftools")
 library("purrr")
+library("rvest")
+
 
 # Functions ---------------------------
 source("script/functions_script.R")
@@ -226,6 +228,11 @@ nyc_directory_data <-subset(nyc_directory_data, select =c("year", "pdf_text"))
 # Each year of the directory is organized differently and not every page will have a dbn
 # and/or an address on it. Therefore, we will clean the pdf text by year using regex
 
+# It is okay if every address is not perfectly cleaned, since most schools will be in at least
+# 2 or 3 of the directories, so we can choose the "cleanest" from those addresses
+# Regarding schools that only appear in one directory and have a "messy" address,
+# we will deal with them on a case by case basis
+
 
 
 
@@ -236,15 +243,32 @@ nyc_directory_address_2008 <-
 #some addresses still have the educational campus in them. They also have a special character
 
 
+nyc_directory_address_2008 <-
+  str_extract(nyc_directory_address_2008,"(?:[0-9]){0,3}.*")
+
+nyc_directory_address_2008 <-gsub("\\a","",nyc_directory_address_2008)
+
+nyc_directory_address_2008 <-gsub(".*Campus|.*Center","",nyc_directory_address_2008)
+
+nyc_directory_address_2008 <-gsub("(\\s\\d{1,4})\\s{1,2}(\\d+)(?!\\D)","",nyc_directory_address_2008, perl = TRUE)
+
+nyc_directory_address_2008 <-trimws(nyc_directory_address_2008)
+
+nyc_directory_address_2008 <-gsub("\\s{2}","",nyc_directory_address_2008, perl = TRUE)
+
 nyc_directory_dbn_2008 <-
   str_extract(nyc_directory_data[nyc_directory_data$year==2008,"pdf_text"],"[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
+
+
 nyc_directory_2008 <-as.data.frame(cbind(nyc_directory_dbn_2008, nyc_directory_address_2008))
+
+
 nyc_directory_2008$year <-rep(2008, nrow(nyc_directory_2008))
 
 
 
 colnames(nyc_directory_2008) <-c("dbn","address","year")
-#nyc_directory_2008 <- nyc_directory_2008[!is.na(nyc_directory_2008$nyc_directory_address_2008), ]
+
 
 # Cleaning School's Addresses for 2011 --------------------------
 
@@ -300,7 +324,13 @@ nyc_directory_2016$year <-rep(2016, nrow(nyc_directory_2016))
 
 colnames(nyc_directory_2016) <-c("dbn","address","year")
 
+# There is one school left with an address at the end of the string rather than after the word "address"
+# The address starts after the word 'Counseling.' for school with DBN "23K514"
 
+nyc_directory_2016$address <-gsub(".*Counseling.","",nyc_directory_2016$address)
+
+
+nyc_directory_2016[nyc_directory_2016$dbn=="23K514",] 
 
 
 
@@ -317,8 +347,72 @@ nyc_directory_data <-nyc_directory_data[!is.na(nyc_directory_data$address),]
 nyc_directory_data <-nyc_directory_data[!grepl("NA", nyc_directory_data$address), ]
 
 
-#count the number of times a dbn appears, if it is more than once keep the most recent address for it
-# since 2016 seems to be the cleanest.
+# group the directory data by dbn and keep only the most recent year's address because
+# it is the cleanest
+
+nyc_directory_data <-nyc_directory_data  %>% group_by(dbn) %>% slice(which.max(year))
+
+
+# remove the rows with no DBN, since "123 Ci ty La ne Bronx, NY 99999" was used as an example
+# in the 2016 directory to show how to find info in the directory
+
+nyc_directory_data <-nyc_directory_data[which(!is.na(nyc_directory_data$dbn)),]
+
+nyc_directory_data$address <-trimws(nyc_directory_data$address)
+
+
+school_dbn <-as.data.frame(school_dbn)
+colnames(school_dbn)[1] <- "dbn"
+x <-merge(school_dbn,nyc_directory_data, by="dbn", all.x =TRUE)
 
 
   
+# Finding the Remaining Schools' Addresses with Web Scraping --------------------------
+
+to_find <-x[is.na(x$address),]
+
+# 49 schools without addresses still, I will use web scraping to find them
+
+
+to_find <-unique(nyc_graduation_data[nyc_graduation_data$dbn%in%to_find$dbn,c("dbn","school_name")])
+
+
+# change hs to "high school" so it is easier to find the addresses
+
+to_find$school_name <-gsub("hs","high school",to_find$school_name)
+
+to_find$address <-" "
+
+search_urls <-list()
+read_search_urls <-list()
+missing_addresses <-list()
+character <-list()
+
+
+
+for (i in seq_along(to_find$dbn)) {
+  print(paste0("Find the address for DBN:", to_find$dbn[[i]]))
+  Sys.sleep(3)
+  search_urls[[i]] = URLencode(paste0("https://insideschools.org/school/", to_find$dbn[[i]]))
+  read_search_urls[[i]] <-read_html(search_urls[[i]])
+  missing_addresses[[i]] <- html_nodes(read_search_urls[[i]],".location-address" ) %>% html_text()
+  character[[i]] <-as.character(missing_addresses[[i]][[1]]) #only the first address on the page is for the school
+  character[[i]] <-gsub("\n", " ", character[[i]])
+  character[[i]] <-trimws(character[[i]])
+}
+
+# problem schools 
+# 8(dbn 03M490) 
+#12 07X470
+#17 10x410
+#27 15k460
+
+to_find[to_find$dbn%in%c("03M490","07X470","10X410","15K460"),]
+
+
+
+
+  
+  
+
+
