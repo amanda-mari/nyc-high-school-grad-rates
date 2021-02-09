@@ -377,12 +377,6 @@ to_find <-x[is.na(x$address),]
 to_find <-unique(nyc_graduation_data[nyc_graduation_data$dbn%in%to_find$dbn,c("dbn","school_name")])
 
 
-# change hs to "high school" so it is easier to find the addresses
-
-to_find$school_name <-gsub("hs","high school",to_find$school_name)
-
-to_find$address <-" "
-
 search_urls <-list()
 read_search_urls <-list()
 missing_addresses <-list()
@@ -391,23 +385,45 @@ character <-list()
 
 
 for (i in seq_along(to_find$dbn)) {
-  print(paste0("Find the address for DBN:", to_find$dbn[[i]]))
-  Sys.sleep(3)
-  search_urls[[i]] = URLencode(paste0("https://insideschools.org/school/", to_find$dbn[[i]]))
-  read_search_urls[[i]] <-read_html(search_urls[[i]])
-  missing_addresses[[i]] <- html_nodes(read_search_urls[[i]],".location-address" ) %>% html_text()
-  character[[i]] <-as.character(missing_addresses[[i]][[1]]) #only the first address on the page is for the school
-  character[[i]] <-gsub("\n", " ", character[[i]])
-  character[[i]] <-trimws(character[[i]])
+  
+ print(paste0("Find the address for DBN:", to_find$dbn[i]))
+ Sys.sleep(3)
+ search_urls[[i]] = URLencode(paste0("https://insideschools.org/school/", to_find$dbn[i]))
+ tryCatch({
+   read_search_urls[[i]] <-read_html(search_urls[[i]])},
+   error=function(e) {
+     NULL
+   })
 }
 
-# problem schools 
-# 8(dbn 03M490) 
-#12 07X470
-#17 10x410
-#27 15k460
 
-to_find[to_find$dbn%in%c("03M490","07X470","10X410","15K460"),]
+for (i in seq_along(to_find$dbn)) {
+if (is.null(read_search_urls[[i]])) {
+  missing_addresses[[i]] <-NA
+  character[[i]] <-NA
+}
+  else {
+    missing_addresses[[i]] <- html_nodes(read_search_urls[[i]],".location-address" ) %>% html_text()
+    character[[i]] <-as.character(missing_addresses[[i]][[1]])
+    character[[i]] <-gsub("\n", " ", character[[i]])
+    character[[i]] <-trimws(character[[i]])
+    Sys.sleep(3)
+  }
+}
+
+
+
+
+new_addresses <-as.data.frame(unlist(character))
+df <-cbind(to_find,new_addresses)
+df$address <-gsub("   ", " ", df$address)
+
+
+
+df[is.na(df$address),]
+
+#4 schools without addresses, I will input these manually
+
 
 
 
