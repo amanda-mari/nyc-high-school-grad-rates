@@ -7,6 +7,7 @@ library("naniar")
 library("pdftools")
 library("purrr")
 library("rvest")
+library("tmaptools")
 
 
 # Functions ---------------------------
@@ -384,7 +385,7 @@ addresses_to_find <- address_info[is.na(address_info$address), ]
 
 
 addresses_to_find <- unique(hs_grad_data[hs_grad_data$dbn %in% addresses_to_find$dbn, c("dbn", "school_name")])
-
+addresses_to_find[] <-lapply(addresses_to_find, as.character)
 
 search_urls <- list()
 read_search_urls <- list()
@@ -428,7 +429,17 @@ for (i in seq_along(addresses_to_find$dbn)) {
 new_addresses_found <- as.data.frame(unlist(addresses_as_character))
 new_addresses_found$dbn <-rownames(new_addresses_found)
 colnames(new_addresses_found)[1] <-"address"
-new_addresses_found$address <- gsub("   ", " ", new_addresses_found$address)
+new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" NY", ", NY, ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Bronx", ", Bronx ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Brooklyn", ", Brooklyn ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Manhattan", ", Manhattan ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Queens", ", Queens ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Staten Island", ", Staten Island ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" Springfield Gardens", ", Springfield Gardens ", new_addresses_found$address)
+new_addresses_found$address <- gsub(" New York", ", New York ", new_addresses_found$address)
+new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
+
 new_addresses_found <-new_addresses_found[,c(2,1)]
 
 
@@ -454,5 +465,39 @@ new_addresses_found[new_addresses_found$dbn=="15K460", "address"] <-"237 Seventh
 
 all_addresses <-merge(new_addresses_found, address_info, by=c("dbn", "address"), all=TRUE)
 all_addresses <-all_addresses[!is.na(all_addresses$address),]
+all_addresses <-all_addresses[order(all_addresses$address),]
+all_addresses$address <-tolower(all_addresses$address)
 
-# Geocoding the AAddresses --------------------------
+# Address Standardization --------------------------
+
+all_addresses <- all_addresses %>% mutate(borough = case_when(
+  grepl("X", all_addresses$dbn) ~ "Bronx",
+  grepl("K", all_addresses$dbn) ~ "Brooklyn",
+  grepl("Q", all_addresses$dbn) ~ "Queens",
+  grepl("M", all_addresses$dbn) ~ "Manhattan",
+  grepl("R", all_addresses$dbn) ~ "Staten Island"
+))
+
+all_addresses$zip_code<-str_extract(all_addresses$address, "[0-9]{5}")
+
+#match everything before first comma
+
+all_addresses$address_part_1<-str_extract(all_addresses$address, "^(.+?),")
+
+all_addresses$address_part_1<-str_extract(all_addresses$address_part_1, "^(.+?)bronx")
+
+# Geocoding the Addresses --------------------------
+
+# Many schools are located in the same building. To shorten our geocoding request,
+# we will only use the unique addresses and later on connect the lat/long to each school.
+
+
+unique_addresses <-  unique(all_addresses$address)
+
+length(unique_addresses)
+
+#371 addresses to find the lat/long coordinates for
+
+all_lat_lon <-geocode_OSM(unique_addresses, keep.unfound = TRUE)
+
+must_clean <-as.data.frame(all_lat_lon[is.na(all_lat_lon$lat),"query"], stringsAsFactors = FALSE)
