@@ -515,9 +515,10 @@ all_addresses$clean_address <-paste0(all_addresses$address_part_1,", ",all_addre
 
 # manually fixing a few addresses
 
-unclean_addresses <-list("109-89 204 street, Queens, NY, 11412 ",
+unclean_address <-list("109-89 204 street, Queens, NY, 11412 ",
                          "123 west 43th street, Manhattan, NY, 10036 ",
                          "240 ea s t 172 street, Bronx, NY, 10457 ",
+                         "26 broa dway, Manhattan, NY, 10004",
                          "26 broa dway, Manhattan, NY, 10004",
                          "27huntington street, Brooklyn, NY, 11231 ",
                          "350 coney is land avenue, Brooklyn, NY, 11218 ",
@@ -530,12 +531,15 @@ unclean_addresses <-list("109-89 204 street, Queens, NY, 11412 ",
                          "1010 rev. j. a. polite avenue, Bronx, NY, 10459",
                          "1010 rev. polite avenue, Bronx, NY, 10459 ",
                          "1010 rev. j. a. polite avenue, Bronx, NY, 10459 ",
-                         "1180 rev. j.a. polite ave., Bronx, NY, 10459 "
+                         "1180 rev. j.a. polite ave., Bronx, NY, 10459 ",
+                         "99 terrace view avenue, Bronx, NY, 10463 ",
+                         "2040 antin pl, Bronx, NY, 10462 "
    )
 
 clean_address <-list("109-89 204th street,Queens, NY, 11412",
                      "123 west 43rd street, Manhattan, NY, 10036",
                      "240 east 172nd street, Bronx, NY, 10457",
+                     "26 broadway, Manhattan, NY, 10004",
                      "26 broadway, Manhattan, NY, 10004",
                      "27 huntington street, Brooklyn, NY, 11231",
                      "350 coney island avenue, Brooklyn, NY, 11218",
@@ -548,12 +552,13 @@ clean_address <-list("109-89 204th street,Queens, NY, 11412",
                      "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
                      "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
                      "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
-                     "1180 Reverend James A. Polite ave., Bronx, NY, 10459 "
-                    
+                     "1180 Reverend James A. Polite ave., Bronx, NY, 10459",
+                     "99 Terrace View Avenue, New York, New York, 10463",
+                     "2040 Mercy College Place, Bronx, NY, 10462"
                      )
 
-for (i in seq_along(unclean_addresses)) {
-  all_addresses[all_addresses$clean_address==unclean_addresses[i], "clean_address"] <- clean_address[i]
+for (i in seq_along(unclean_address)) {
+  all_addresses[all_addresses$clean_address==unclean_address[i], "clean_address"] <- clean_address[i]
   
 }
 
@@ -571,8 +576,31 @@ unique_addresses <-  unique(all_addresses$clean_address)
 
 length(unique_addresses)
 
-#309 addresses to find the lat/long coordinates for
+#302 addresses to find the lat/long coordinates for
 
 all_lat_lon <-geocode_OSM(unique_addresses, keep.unfound = TRUE)
 
-must_clean <-as.data.frame(all_lat_lon[is.na(all_lat_lon$lat),"query"], stringsAsFactors = FALSE)
+
+
+# Merging the Spatial Coordinates with the Graduation Data --------------------------
+
+# first we need to merge "all_addresses" with "all_lat_lon" to get the lat/long for each DBN
+
+spatial_info <-merge(all_addresses, all_lat_lon,by.x="clean_address", by.y="query")
+keep_columns <-c("dbn", "clean_address", "borough", "zip_code", "lat", "lon")
+spatial_info <-spatial_info[ , names(spatial_info) %in% keep_columns]
+spatial_info <- spatial_info[, c("dbn", "clean_address", "borough", "zip_code", "lat", "lon")]
+
+# now that the DBN is in the dataset, we can merge it back to the graduation data
+
+hs_grad_data <-merge(hs_grad_data, spatial_info, by="dbn")
+names(hs_grad_data) [names(hs_grad_data)=="clean_address"] <-"address"
+hs_grad_data <-hs_grad_data[,c("dbn","school_name","address","borough","zip_code","lat","lon","cohort_start","cohort_type",
+                               "cohort_group","group_attribute","value")]
+
+glimpse(hs_grad_data)
+
+
+
+
+
