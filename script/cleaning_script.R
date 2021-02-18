@@ -246,19 +246,21 @@ hs_dir_address_2008 <-
   str_extract(hs_dir_data[hs_dir_data$year == 2008, "pdf_text"], "(?<=Address: ).*?(\\d{5})")
 # some addresses still have the educational campus in them. They also have a special character
 
+hs_dir_address_2008 <-
+  str_extract(hs_dir_address_2008, "(?:[0-9]){0,3}.*")
+hs_dir_address_2008 <- gsub("\\a", "", hs_dir_address_2008)
 
 hs_dir_address_2008 <-
   str_extract(hs_dir_address_2008, "(?:[0-9]){0,3}.*")
 
-hs_dir_address_2008 <- gsub("\\a", "", hs_dir_address_2008)
-
 hs_dir_address_2008 <- gsub(".*Campus|.*Center", "", hs_dir_address_2008)
+
+hs_dir_address_2008 <- gsub("\\s{2}", "", hs_dir_address_2008, perl = TRUE)
 
 hs_dir_address_2008 <- gsub("(\\s\\d{1,4})\\s{1,2}(\\d+)(?!\\D)", "", hs_dir_address_2008, perl = TRUE)
 
 hs_dir_address_2008 <- trimws(hs_dir_address_2008)
 
-hs_dir_address_2008 <- gsub("\\s{2}", "", hs_dir_address_2008, perl = TRUE)
 
 hs_dir_dbn_2008 <-
   str_extract(hs_dir_data[hs_dir_data$year == 2008, "pdf_text"], "[0-9]{2}[K|X|M|Q|R]{1}[0-9]{2,3}")
@@ -339,7 +341,6 @@ hs_dir_2016$address <- gsub(".*Counseling.", "", hs_dir_2016$address)
 
 
 hs_dir_2016[hs_dir_2016$dbn == "23K514", ]
-
 
 
 # Combining the Directory Addresses --------------------------
@@ -470,6 +471,8 @@ all_addresses$address <-tolower(all_addresses$address)
 
 # Address Standardization --------------------------
 
+#using the letter in the DBN to identify each school's borough
+
 all_addresses <- all_addresses %>% mutate(borough = case_when(
   grepl("X", all_addresses$dbn) ~ "Bronx",
   grepl("K", all_addresses$dbn) ~ "Brooklyn",
@@ -484,19 +487,91 @@ all_addresses$zip_code<-str_extract(all_addresses$address, "[0-9]{5}")
 
 all_addresses$address_part_1<-str_extract(all_addresses$address, "^(.+?),")
 
-all_addresses$address_part_1<-str_extract(all_addresses$address_part_1, "^(.+?)bronx")
+all_addresses$address_part_1<-gsub(",","",all_addresses$address_part_1)
 
+all_addresses$address_part_1 <-trimws(all_addresses$address_part_1)
+
+#remove remaining borough and neighborhood names from first part of each address
+remove_at_string_end_only <-c("bronx","queens","manhattan","brooklyn","staten island","long island city",
+                             "south richmond hill", "richmond hill", "flushing","bellerose",
+                             "forest hills", "fresh meadows", "far rockaway", "new york", "elmhurst",
+                             "south bronx","cambria heights", "hollis", "springfield gardens", "south ozone park",
+                             "rockaway park", "ozone park", "oakland gardens", "astoria", "brookl yn",
+                             "ozone park", "bayside", "ma nhattan", "ridgewood", "saint albans","n corona"
+                             ,"jamaica", "queens village")
+
+remove_at_string_end_only <-paste0("\\b",remove_at_string_end_only, "$", collapse="|")
+
+
+all_addresses$address_part_1<-gsub(remove_at_string_end_only,"",all_addresses$address_part_1, perl = TRUE)
+
+
+all_addresses$address_part_1 <-trimws(all_addresses$address_part_1)
+
+
+
+all_addresses$clean_address <-paste0(all_addresses$address_part_1,", ",all_addresses$borough,
+                                     ", NY", ", ", all_addresses$zip_code, sep=" ")
+
+# manually fixing a few addresses
+
+unclean_addresses <-list("109-89 204 street, Queens, NY, 11412 ",
+                         "123 west 43th street, Manhattan, NY, 10036 ",
+                         "240 ea s t 172 street, Bronx, NY, 10457 ",
+                         "26 broa dway, Manhattan, NY, 10004",
+                         "27huntington street, Brooklyn, NY, 11231 ",
+                         "350 coney is land avenue, Brooklyn, NY, 11218 ",
+                         "317 east 67 street, Manhattan, NY, 10065 ",
+                         "333 east 151 street, Bronx, NY, 10451 ",
+                         "360 east 145 street, Bronx, NY, 10454 ",
+                         "75 west 205 street, Bronx, NY, 10468 ",
+                         "8-21 bay 25 street, Queens, NY, 11691 ",
+                         "89-30 114 street, Queens, NY, 11418 ",
+                         "1010 rev. j. a. polite avenue, Bronx, NY, 10459",
+                         "1010 rev. polite avenue, Bronx, NY, 10459 ",
+                         "1010 rev. j. a. polite avenue, Bronx, NY, 10459 ",
+                         "1180 rev. j.a. polite ave., Bronx, NY, 10459 "
+   )
+
+clean_address <-list("109-89 204th street,Queens, NY, 11412",
+                     "123 west 43rd street, Manhattan, NY, 10036",
+                     "240 east 172nd street, Bronx, NY, 10457",
+                     "26 broadway, Manhattan, NY, 10004",
+                     "27 huntington street, Brooklyn, NY, 11231",
+                     "350 coney island avenue, Brooklyn, NY, 11218",
+                     "317 east 67th street, Manhattan, NY, 10065",
+                     "333 east 151st street, Bronx, NY, 10451",
+                     "360 east 145th street, Bronx, NY, 10454",
+                     "75 west 205th street, Bronx, NY, 10468",
+                     "8-21 bay 25th street, Queens, NY, 11691",
+                     "89-30 114th street, Queens, NY, 11418",
+                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
+                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
+                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
+                     "1180 Reverend James A. Polite ave., Bronx, NY, 10459 "
+                    
+                     )
+
+for (i in seq_along(unclean_addresses)) {
+  all_addresses[all_addresses$clean_address==unclean_addresses[i], "clean_address"] <- clean_address[i]
+  
+}
+
+
+
+
+all_addresses$clean_address <-trimws(all_addresses$clean_address)
 # Geocoding the Addresses --------------------------
 
 # Many schools are located in the same building. To shorten our geocoding request,
 # we will only use the unique addresses and later on connect the lat/long to each school.
 
 
-unique_addresses <-  unique(all_addresses$address)
+unique_addresses <-  unique(all_addresses$clean_address)
 
 length(unique_addresses)
 
-#371 addresses to find the lat/long coordinates for
+#309 addresses to find the lat/long coordinates for
 
 all_lat_lon <-geocode_OSM(unique_addresses, keep.unfound = TRUE)
 
