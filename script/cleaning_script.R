@@ -681,5 +681,5 @@ names(split_by_cohort_type) <- c(
 
 
 for (type in names(split_by_cohort_type)) {
-  openxlsx::write.xlsx(split_by_cohort_type[[type]], paste0("output/", type, "_data.xlsx"))
+  openxlsx::write.xlsx(split_by_cohort_type[[type]], paste0("data/processed/", type, "_data.xlsx"))
 }
