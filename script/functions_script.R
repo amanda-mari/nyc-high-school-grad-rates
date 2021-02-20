@@ -14,5 +14,3 @@ remove_blank_pages <-function(nested_list_name) {
 }
 
   
-
-

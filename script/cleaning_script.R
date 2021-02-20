@@ -8,7 +8,7 @@ library("pdftools")
 library("purrr")
 library("rvest")
 library("tmaptools")
-
+library("openxlsx")
 
 # Functions ---------------------------
 source("script/functions_script.R")
@@ -225,18 +225,16 @@ hs_dir_data <- subset(hs_dir_data, select = c("year", "pdf_text"))
 # The two main components we want from the directory are each school's DBN and address.
 
 # The DBN is the district borough number of each school. It is 6 characters long. The DBN starts
-# with a 2 number combination for the district, then any of the following letters 'K' 'X' 'Q' 'M' 'R',
-# depending on the school's borough. Finally, the DBN ends with a 2 digit number for the school
+# with a 2 number combination for the district, then any of the following letters
+# 'K' 'X' 'Q' 'M' 'R', depending on the school's borough.
+# Finally, the DBN ends with a 2 digit number for the school
 
 
 # Each year of the directory is organized differently and not every page will have a dbn
 # and/or an address on it. Therefore, we will clean the pdf text by year using regex
 
-# It is okay if every address is not perfectly cleaned, since most schools will be in at least
-# 2 or 3 of the directories, so we can choose the "cleanest" from those addresses
-# Regarding schools that only appear in one directory and have a "messy" address,
-# we will deal with them on a case by case basis
-
+# It is okay if every address is not perfectly cleaned, since we will standardize the addresses
+# later on
 
 
 
@@ -280,9 +278,10 @@ colnames(hs_dir_2008) <- c("dbn", "address", "year")
 
 hs_dir_address_2011 <-
   str_extract(hs_dir_data[hs_dir_data$year == 2011, "pdf_text"], "(?=Address:).*?(\\d{5})")
-# there is a lot of text between the second to last part of the address (i.e. road, avenue, street) and the city & zip code
-# According to the NYC DOE, the letter in the middle of the DBN indicates which borough the school is in, so I will
-# only extract the beginning of the address and the zipcode, and later on use the DBN to get the borough
+# there is a lot of text between the second to last part of the address (i.e. road, avenue, street)
+# and the city & zip code. According to the NYC DOE, the letter in the middle of the DBN 
+# indicates which borough the school is in, so I will only extract the beginning of 
+# the address and the zipcode, and later on use the DBN to get the borough
 
 
 # using common address terms like street and road to begin subsetting the string
@@ -344,8 +343,8 @@ hs_dir_2016[hs_dir_2016$dbn == "23K514", ]
 
 
 # Combining the Directory Addresses --------------------------
-# I will be combining the directories back together using rbind, and if there are duplicate  DBNs, I will use the
-# cleanest address for the school
+# I will be combining the directories back together using rbind, and if there are duplicate  DBNs,
+# I will use the most recent address for the school
 
 hs_dir_data <- rbind(hs_dir_2008, hs_dir_2011, hs_dir_2016)
 hs_dir_data <- hs_dir_data[order(hs_dir_data$dbn), ]
@@ -356,8 +355,7 @@ hs_dir_data <- hs_dir_data[!is.na(hs_dir_data$address), ]
 hs_dir_data <- hs_dir_data[!grepl("NA", hs_dir_data$address), ]
 
 
-# group the directory data by dbn and keep only the most recent year's address because
-# it is the cleanest
+# group the directory data by dbn and keep only the most recent year's address
 
 hs_dir_data <- hs_dir_data %>%
   group_by(dbn) %>%
@@ -386,7 +384,7 @@ addresses_to_find <- address_info[is.na(address_info$address), ]
 
 
 addresses_to_find <- unique(hs_grad_data[hs_grad_data$dbn %in% addresses_to_find$dbn, c("dbn", "school_name")])
-addresses_to_find[] <-lapply(addresses_to_find, as.character)
+addresses_to_find[] <- lapply(addresses_to_find, as.character)
 
 search_urls <- list()
 read_search_urls <- list()
@@ -397,8 +395,7 @@ addresses_as_character <- list()
 for (i in seq_along(addresses_to_find$dbn)) {
   print(paste0("Find the address for DBN:", addresses_to_find$dbn[i]))
   search_urls[[i]] <- URLencode(paste0("https://insideschools.org/school/", addresses_to_find$dbn[i]))
-  tryCatch(
-    {
+  tryCatch({
       read_search_urls[[i]] <- read_html(search_urls[[i]])
       Sys.sleep(3)
     },
@@ -414,22 +411,22 @@ for (i in seq_along(addresses_to_find$dbn)) {
   if (is.null(read_search_urls[[i]])) {
     returned_addresses[[i]] <- NA
     addresses_as_character[[i]] <- NA
-    names(addresses_as_character)[[i]] <-paste0(addresses_to_find$dbn[i])
+    names(addresses_as_character)[[i]] <- paste0(addresses_to_find$dbn[i])
   }
   else {
     returned_addresses[[i]] <- html_nodes(read_search_urls[[i]], ".location-address") %>% html_text()
     addresses_as_character[[i]] <- as.character(returned_addresses[[i]][[1]])
     addresses_as_character[[i]] <- gsub("\n", " ", addresses_as_character[[i]])
     addresses_as_character[[i]] <- trimws(addresses_as_character[[i]])
-    names(addresses_as_character)[[i]] <-paste0(addresses_to_find$dbn[i])
+    names(addresses_as_character)[[i]] <- paste0(addresses_to_find$dbn[i])
     Sys.sleep(3)
   }
 }
 
 
 new_addresses_found <- as.data.frame(unlist(addresses_as_character))
-new_addresses_found$dbn <-rownames(new_addresses_found)
-colnames(new_addresses_found)[1] <-"address"
+new_addresses_found$dbn <- rownames(new_addresses_found)
+colnames(new_addresses_found)[1] <- "address"
 new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
 new_addresses_found$address <- gsub(" NY", ", NY, ", new_addresses_found$address)
 new_addresses_found$address <- gsub(" Bronx", ", Bronx ", new_addresses_found$address)
@@ -441,7 +438,7 @@ new_addresses_found$address <- gsub(" Springfield Gardens", ", Springfield Garde
 new_addresses_found$address <- gsub(" New York", ", New York ", new_addresses_found$address)
 new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
 
-new_addresses_found <-new_addresses_found[,c(2,1)]
+new_addresses_found <- new_addresses_found[, c(2, 1)]
 
 
 # Manually Inputting 4 Schools' Addresses --------------------------
@@ -452,26 +449,26 @@ new_addresses_found[is.na(new_addresses_found$address), ]
 # It appears that these schools were closed, with some being broken down into smaller schools.
 # I will input addresses manually based on information from google searches
 
-#retrieving these schools names from our data
+# retrieving these schools names from our data
 
-addresses_to_find[addresses_to_find$dbn%in%c("03M490","07X470","10X410","15K460"),]
+addresses_to_find[addresses_to_find$dbn %in% c("03M490", "07X470", "10X410", "15K460"), ]
 
-new_addresses_found[new_addresses_found$dbn=="03M490", "address"] <-"122 Amsterdam Ave, New York, NY 10023"
-new_addresses_found[new_addresses_found$dbn=="07X470", "address"] <-"701 Saint Ann's Avenue, Bronx, NY 10455"
-new_addresses_found[new_addresses_found$dbn=="10X410", "address"] <-"240 East 172nd Street, Bronx, NY 10457"
-new_addresses_found[new_addresses_found$dbn=="15K460", "address"] <-"237 Seventh Avenue, Brooklyn, NY 11215"
+new_addresses_found[new_addresses_found$dbn == "03M490", "address"] <- "122 Amsterdam Ave, New York, NY 10023"
+new_addresses_found[new_addresses_found$dbn == "07X470", "address"] <- "701 Saint Ann's Avenue, Bronx, NY 10455"
+new_addresses_found[new_addresses_found$dbn == "10X410", "address"] <- "240 East 172nd Street, Bronx, NY 10457"
+new_addresses_found[new_addresses_found$dbn == "15K460", "address"] <- "237 Seventh Avenue, Brooklyn, NY 11215"
 
 
 # Stacking all Schools' Addresses --------------------------
 
-all_addresses <-merge(new_addresses_found, address_info, by=c("dbn", "address"), all=TRUE)
-all_addresses <-all_addresses[!is.na(all_addresses$address),]
-all_addresses <-all_addresses[order(all_addresses$address),]
-all_addresses$address <-tolower(all_addresses$address)
+all_addresses <- merge(new_addresses_found, address_info, by = c("dbn", "address"), all = TRUE)
+all_addresses <- all_addresses[!is.na(all_addresses$address), ]
+all_addresses <- all_addresses[order(all_addresses$address), ]
+all_addresses$address <- tolower(all_addresses$address)
 
 # Address Standardization --------------------------
 
-#using the letter in the DBN to identify each school's borough
+# using the letter in the DBN to identify each school's borough
 
 all_addresses <- all_addresses %>% mutate(borough = case_when(
   grepl("X", all_addresses$dbn) ~ "Bronx",
@@ -481,104 +478,107 @@ all_addresses <- all_addresses %>% mutate(borough = case_when(
   grepl("R", all_addresses$dbn) ~ "Staten Island"
 ))
 
-all_addresses$zip_code<-str_extract(all_addresses$address, "[0-9]{5}")
+all_addresses$zip_code <- str_extract(all_addresses$address, "[0-9]{5}")
 
-#match everything before first comma
+# match everything before first comma
 
-all_addresses$address_part_1<-str_extract(all_addresses$address, "^(.+?),")
+all_addresses$address_part_1 <- str_extract(all_addresses$address, "^(.+?),")
 
-all_addresses$address_part_1<-gsub(",","",all_addresses$address_part_1)
+all_addresses$address_part_1 <- gsub(",", "", all_addresses$address_part_1)
 
-all_addresses$address_part_1 <-trimws(all_addresses$address_part_1)
+all_addresses$address_part_1 <- trimws(all_addresses$address_part_1)
 
-#remove remaining borough and neighborhood names from first part of each address
-remove_at_string_end_only <-c("bronx","queens","manhattan","brooklyn","staten island","long island city",
-                             "south richmond hill", "richmond hill", "flushing","bellerose",
-                             "forest hills", "fresh meadows", "far rockaway", "new york", "elmhurst",
-                             "south bronx","cambria heights", "hollis", "springfield gardens", "south ozone park",
-                             "rockaway park", "ozone park", "oakland gardens", "astoria", "brookl yn",
-                             "ozone park", "bayside", "ma nhattan", "ridgewood", "saint albans","n corona"
-                             ,"jamaica", "queens village")
+# remove remaining borough and neighborhood names from first part of each address
+remove_at_string_end_only <- c(
+  "bronx", "queens", "manhattan", "brooklyn", "staten island", "long island city",
+  "south richmond hill", "richmond hill", "flushing", "bellerose",
+  "forest hills", "fresh meadows", "far rockaway", "new york", "elmhurst",
+  "south bronx", "cambria heights", "hollis", "springfield gardens", "south ozone park",
+  "rockaway park", "ozone park", "oakland gardens", "astoria", "brookl yn",
+  "ozone park", "bayside", "ma nhattan", "ridgewood", "saint albans", "n corona",
+  "jamaica", "queens village"
+)
 
-remove_at_string_end_only <-paste0("\\b",remove_at_string_end_only, "$", collapse="|")
-
-
-all_addresses$address_part_1<-gsub(remove_at_string_end_only,"",all_addresses$address_part_1, perl = TRUE)
-
-
-all_addresses$address_part_1 <-trimws(all_addresses$address_part_1)
+remove_at_string_end_only <- paste0("\\b", remove_at_string_end_only, "$", collapse = "|")
 
 
+all_addresses$address_part_1 <- gsub(remove_at_string_end_only, "", all_addresses$address_part_1, perl = TRUE)
 
-all_addresses$clean_address <-paste0(all_addresses$address_part_1,", ",all_addresses$borough,
-                                     ", NY", ", ", all_addresses$zip_code, sep=" ")
+
+all_addresses$address_part_1 <- trimws(all_addresses$address_part_1)
+
+
+
+all_addresses$clean_address <- paste0(all_addresses$address_part_1, ", ", all_addresses$borough,
+  ", NY", ", ", all_addresses$zip_code,
+  sep = " "
+)
 
 # manually fixing a few addresses
 
-unclean_address <-list("109-89 204 street, Queens, NY, 11412 ",
-                         "123 west 43th street, Manhattan, NY, 10036 ",
-                         "240 ea s t 172 street, Bronx, NY, 10457 ",
-                         "26 broa dway, Manhattan, NY, 10004",
-                         "26 broa dway, Manhattan, NY, 10004",
-                         "27huntington street, Brooklyn, NY, 11231 ",
-                         "350 coney is land avenue, Brooklyn, NY, 11218 ",
-                         "317 east 67 street, Manhattan, NY, 10065 ",
-                         "333 east 151 street, Bronx, NY, 10451 ",
-                         "360 east 145 street, Bronx, NY, 10454 ",
-                         "75 west 205 street, Bronx, NY, 10468 ",
-                         "8-21 bay 25 street, Queens, NY, 11691 ",
-                         "89-30 114 street, Queens, NY, 11418 ",
-                         "1010 rev. j. a. polite avenue, Bronx, NY, 10459",
-                         "1010 rev. polite avenue, Bronx, NY, 10459 ",
-                         "1010 rev. j. a. polite avenue, Bronx, NY, 10459 ",
-                         "1180 rev. j.a. polite ave., Bronx, NY, 10459 ",
-                         "99 terrace view avenue, Bronx, NY, 10463 ",
-                         "2040 antin pl, Bronx, NY, 10462 "
-   )
+address_unstandardized <- list(
+  "109-89 204 street, Queens, NY, 11412 ",
+  "123 west 43th street, Manhattan, NY, 10036 ",
+  "240 ea s t 172 street, Bronx, NY, 10457 ",
+  "26 broa dway, Manhattan, NY, 10004",
+  "26 broa dway, Manhattan, NY, 10004 ",
+  "27huntington street, Brooklyn, NY, 11231 ",
+  "350 coney is land avenue, Brooklyn, NY, 11218 ",
+  "317 east 67 street, Manhattan, NY, 10065 ",
+  "333 east 151 street, Bronx, NY, 10451 ",
+  "360 east 145 street, Bronx, NY, 10454 ",
+  "75 west 205 street, Bronx, NY, 10468 ",
+  "8-21 bay 25 street, Queens, NY, 11691 ",
+  "89-30 114 street, Queens, NY, 11418 ",
+  "1010 rev. j. a. polite avenue, Bronx, NY, 10459 ",
+  "1010 rev. polite avenue, Bronx, NY, 10459 ",
+  "1180 rev. j.a. polite ave., Bronx, NY, 10459 ",
+  "99 terrace view avenue, Bronx, NY, 10463 ",
+  "2040 antin pl, Bronx, NY, 10462 "
+)
 
-clean_address <-list("109-89 204th street,Queens, NY, 11412",
-                     "123 west 43rd street, Manhattan, NY, 10036",
-                     "240 east 172nd street, Bronx, NY, 10457",
-                     "26 broadway, Manhattan, NY, 10004",
-                     "26 broadway, Manhattan, NY, 10004",
-                     "27 huntington street, Brooklyn, NY, 11231",
-                     "350 coney island avenue, Brooklyn, NY, 11218",
-                     "317 east 67th street, Manhattan, NY, 10065",
-                     "333 east 151st street, Bronx, NY, 10451",
-                     "360 east 145th street, Bronx, NY, 10454",
-                     "75 west 205th street, Bronx, NY, 10468",
-                     "8-21 bay 25th street, Queens, NY, 11691",
-                     "89-30 114th street, Queens, NY, 11418",
-                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
-                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
-                     "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
-                     "1180 Reverend James A. Polite ave., Bronx, NY, 10459",
-                     "99 Terrace View Avenue, New York, New York, 10463",
-                     "2040 Mercy College Place, Bronx, NY, 10462"
-                     )
+address_standardized <- list(
+  "109-89 204th street,Queens, NY, 11412",
+  "123 west 43rd street, Manhattan, NY, 10036",
+  "240 east 172nd street, Bronx, NY, 10457",
+  "26 broadway, Manhattan, NY, 10004",
+  "26 broadway, Manhattan, NY, 10004",
+  "27 huntington street, Brooklyn, NY, 11231",
+  "350 coney island avenue, Brooklyn, NY, 11218",
+  "317 east 67th street, Manhattan, NY, 10065",
+  "333 east 151st street, Bronx, NY, 10451",
+  "360 east 145th street, Bronx, NY, 10454",
+  "75 west 205th street, Bronx, NY, 10468",
+  "8-21 bay 25th street, Queens, NY, 11691",
+  "89-30 114th street, Queens, NY, 11418",
+  "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
+  "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
+  "1180 Reverend James A. Polite ave., Bronx, NY, 10459",
+  "99 Terrace View Avenue, New York, New York, 10463",
+  "2040 Mercy College Place, Bronx, NY, 10462"
+)
 
-for (i in seq_along(unclean_address)) {
-  all_addresses[all_addresses$clean_address==unclean_address[i], "clean_address"] <- clean_address[i]
-  
+for (i in seq_along(address_unstandardized)) {
+  all_addresses[all_addresses$clean_address == address_unstandardized[i], "clean_address"] <- address_standardized[i]
 }
 
 
 
 
-all_addresses$clean_address <-trimws(all_addresses$clean_address)
+all_addresses$clean_address <- trimws(all_addresses$clean_address)
 # Geocoding the Addresses --------------------------
 
 # Many schools are located in the same building. To shorten our geocoding request,
 # we will only use the unique addresses and later on connect the lat/long to each school.
 
 
-unique_addresses <-  unique(all_addresses$clean_address)
+unique_addresses <- unique(all_addresses$clean_address)
 
 length(unique_addresses)
 
-#302 addresses to find the lat/long coordinates for
+# 302 addresses to find the lat/long coordinates for
 
-all_lat_lon <-geocode_OSM(unique_addresses, keep.unfound = TRUE)
+all_lat_lon <- geocode_OSM(unique_addresses, keep.unfound = TRUE)
 
 
 
@@ -586,21 +586,100 @@ all_lat_lon <-geocode_OSM(unique_addresses, keep.unfound = TRUE)
 
 # first we need to merge "all_addresses" with "all_lat_lon" to get the lat/long for each DBN
 
-spatial_info <-merge(all_addresses, all_lat_lon,by.x="clean_address", by.y="query")
-keep_columns <-c("dbn", "clean_address", "borough", "zip_code", "lat", "lon")
-spatial_info <-spatial_info[ , names(spatial_info) %in% keep_columns]
+spatial_info <- merge(all_addresses, all_lat_lon, by.x = "clean_address", by.y = "query")
+keep_columns <- c("dbn", "clean_address", "borough", "zip_code", "lat", "lon")
+spatial_info <- spatial_info[, names(spatial_info) %in% keep_columns]
 spatial_info <- spatial_info[, c("dbn", "clean_address", "borough", "zip_code", "lat", "lon")]
 
 # now that the DBN is in the dataset, we can merge it back to the graduation data
 
-hs_grad_data <-merge(hs_grad_data, spatial_info, by="dbn")
-names(hs_grad_data) [names(hs_grad_data)=="clean_address"] <-"address"
-hs_grad_data <-hs_grad_data[,c("dbn","school_name","address","borough","zip_code","lat","lon","cohort_start","cohort_type",
-                               "cohort_group","group_attribute","value")]
+hs_data <- merge(hs_grad_data, spatial_info, by = "dbn")
+names(hs_data) [names(hs_data) == "clean_address"] <- "address"
+hs_data <- hs_data[, c(
+  "dbn", "school_name", "address", "borough", "zip_code", "lat", "lon", "cohort_start", "cohort_type",
+  "cohort_group", "group_attribute", "value"
+)]
 
-glimpse(hs_grad_data)
+convert_to_factor <- c("address", "borough", "zip_code", "group_attribute", "cohort_start")
+
+hs_data[convert_to_factor] <- lapply(hs_data[convert_to_factor], as.factor)
+
+# Assigning each School a "Floor" --------------------------
+
+hs_data$lat_lon <- paste0(hs_data$lat, ",", hs_data$lon)
+
+length(unique(hs_data$lat_lon))
+
+hs_data <- hs_data[order(
+  hs_data$lat_lon, hs_data$cohort_start, hs_data$dbn,
+  hs_data$cohort_type, hs_data$cohort_group, hs_data$group_attribute
+), ]
+
+# The goal of this project is to create a 3D visualization of high school graduation rates,
+# There are 553 schools total nested within 294 campuses. To make a 3D visualization possible,
+# we need to assign each school a floor within a campus (note: this is not necessarily where it 
+# is located in real life), we will do this by year since new schools can open and 
+# old schools can close in any given year,
+
+# find the number of schools located in each campus for each year
+
+hs_data <- hs_data %>%
+  group_by(lat_lon, cohort_start) %>%
+  mutate(total_schools_on_campus = length(unique(dbn)))
 
 
+# for each year, assign each school within a campus a "floor"
+
+hs_data <- hs_data %>%
+  group_by(lat_lon, cohort_start) %>%
+  mutate(school_floor = match(dbn, sort(unique(dbn))))
 
 
+# Filtering the Data --------------------------
 
+hs_data <- hs_data[, c(
+  "lat_lon", "borough", "zip_code",
+  "total_schools_on_campus", "dbn",
+  "school_name", "school_floor", "cohort_start",
+  "cohort_type", "cohort_group",
+  "group_attribute", "value"
+)]
+
+# only keeping cohort size, graduation, dropout, and still enrolled rates
+
+hs_data <- hs_data[hs_data$group_attribute %in% c(
+  "group_size", "group_grad_total",
+  "group_dropout_total", "group_still_enrolled_total"
+), ]
+
+
+# dropping unused attributes
+
+hs_data$group_attribute <- factor(hs_data$group_attribute)
+
+# removing NA values (originally 's') to save space
+
+hs_data <- hs_data[!is.na(hs_data$value), ]
+
+# converting lat/lon and cohort_start to factor
+
+convert_to_factor <- c("total_schools_on_campus", "school_floor")
+
+hs_data[convert_to_factor] <- lapply(hs_data[convert_to_factor], as.factor)
+
+# Exporting the Data --------------------------
+
+
+split_by_cohort_type <- split(hs_data, list(hs_data$cohort_type))
+
+
+names(split_by_cohort_type) <- c(
+  "four_year_august", "four_year_june",
+  "five_year_august", "five_year_june",
+  "six_year_june"
+)
+
+
+for (type in names(split_by_cohort_type)) {
+  openxlsx::write.xlsx(split_by_cohort_type[[type]], paste0("output/", type, "_data.xlsx"))
+}
