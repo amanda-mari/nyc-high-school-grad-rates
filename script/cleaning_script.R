@@ -85,7 +85,7 @@ hs_grad_data <- subset(hs_grad_data, select = -id)
 
 # Data Wrangling ---------------------------
 # The data is currently in wide format with several columns.
-# It will be easier for analysis to have it in long format.
+# We want it in long format
 
 # reorder columns first
 
@@ -194,7 +194,7 @@ for (i in seq_along(hs_dir_data)) {
 hs_dir_data <- hs_dir_data %>% flatten()
 
 # initialize lists to pull out information we need:
-# directory years, school dbns and addresses using for loops
+# directory years, school dbns, and addresses by using for loops
 hs_dir_text <- list()
 hs_dir_year <- list()
 
@@ -278,8 +278,8 @@ colnames(hs_dir_2008) <- c("dbn", "address", "year")
 hs_dir_address_2011 <-
   str_extract(hs_dir_data[hs_dir_data$year == 2011, "pdf_text"], "(?=Address:).*?(\\d{5})")
 # there is a lot of text between the second to last part of the address (i.e. road, avenue, street)
-# and the city & zip code. According to the NYC DOE, the letter in the middle of the DBN 
-# indicates which borough the school is in, so I will only extract the beginning of 
+# and the city & zip code. According to the NYC DOE, the letter in the middle of the DBN
+# indicates which borough the school is in, so I will only extract the beginning of
 # the address and the zipcode, and later on use the DBN to get the borough
 
 
@@ -394,7 +394,8 @@ addresses_as_character <- list()
 for (i in seq_along(addresses_to_find$dbn)) {
   print(paste0("Find the address for DBN:", addresses_to_find$dbn[i]))
   search_urls[[i]] <- URLencode(paste0("https://insideschools.org/school/", addresses_to_find$dbn[i]))
-  tryCatch({
+  tryCatch(
+    {
       read_search_urls[[i]] <- read_html(search_urls[[i]])
       Sys.sleep(3)
     },
@@ -426,16 +427,26 @@ for (i in seq_along(addresses_to_find$dbn)) {
 new_addresses_found <- as.data.frame(unlist(addresses_as_character))
 new_addresses_found$dbn <- rownames(new_addresses_found)
 colnames(new_addresses_found)[1] <- "address"
+
+
+
 new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" NY", ", NY, ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Bronx", ", Bronx ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Brooklyn", ", Brooklyn ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Manhattan", ", Manhattan ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Queens", ", Queens ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Staten Island", ", Staten Island ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" Springfield Gardens", ", Springfield Gardens ", new_addresses_found$address)
-new_addresses_found$address <- gsub(" New York", ", New York ", new_addresses_found$address)
+
+original_endings <- c(
+  " NY", " Bronx", " Brooklyn", " Manhattan", " Queens",
+  " Staten Island", " Springfield Gardens", " New York"
+)
+new_endings <- c(
+  ", NY, ", ", Bronx ", ", Brooklyn ", ", Manhattan ", ", Queens ",
+  ", Staten Island ", ", Springfield Gardens ", ", New York "
+)
+
+for (i in seq_along(original_endings)) {
+  new_addresses_found$address <- gsub(original_endings[[i]], new_endings[[i]], new_addresses_found$address)
+}
+
 new_addresses_found$address <- gsub("  ", " ", new_addresses_found$address)
+
 
 new_addresses_found <- new_addresses_found[, c(2, 1)]
 
@@ -616,8 +627,8 @@ hs_data <- hs_data[order(
 
 # The goal of this project is to create a 3D visualization of high school graduation rates,
 # There are 553 schools total nested within 294 campuses. To make a 3D visualization possible,
-# we need to assign each school a floor within a campus (note: this is not necessarily where it 
-# is located in real life), we will do this by year since new schools can open and 
+# we need to assign each school a floor within a campus (note: this is not necessarily where it
+# is located in real life), we will do this by year since new schools can open and
 # old schools can close in any given year,
 
 # find the number of schools located in each campus for each year
@@ -636,15 +647,17 @@ hs_data <- hs_data %>%
 
 # Filtering the Data --------------------------
 
+hs_data <- as.data.frame(hs_data)
+
 hs_data <- hs_data[, c(
-  "lat_lon", "borough", "zip_code",
+  "lat", "lon", "borough", "zip_code",
   "total_schools_on_campus", "dbn",
   "school_name", "school_floor", "cohort_start",
   "cohort_type", "cohort_group",
   "group_attribute", "value"
 )]
 
-# only keeping cohort size, graduation, dropout, and still enrolled rates
+# only keeping cohort size, graduation, dropout, and still enrolled totals
 
 hs_data <- hs_data[hs_data$group_attribute %in% c(
   "group_size", "group_grad_total",
@@ -660,11 +673,7 @@ hs_data$group_attribute <- factor(hs_data$group_attribute)
 
 hs_data <- hs_data[!is.na(hs_data$value), ]
 
-# converting lat/lon and cohort_start to factor
 
-convert_to_factor <- c("total_schools_on_campus", "school_floor")
-
-hs_data[convert_to_factor] <- lapply(hs_data[convert_to_factor], as.factor)
 
 # Exporting the Data --------------------------
 
