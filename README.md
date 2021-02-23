@@ -76,7 +76,8 @@ These files contain data on 553 NYC high schools within 294 campuses. Each row i
 
 Each file contains the following variables:
 
-- *lat_lon* contains the latitude and longitude of the school separated by a comma
+- *lat* contains the latitude of the school
+- *lon* contains the longitude of the school
 - *borough* contains the borough of the school, this information was extracted from the DBN (more information can be found [here](https://teachnyc.zendesk.com/hc/en-us/articles/360053601831-What-is-a-DBN-District-Borough-Number-) )
 - *zip_code* contains the zip code of the school
 - *total_schools_on_campus* Total number of schools located at the same latitude/longitude (in the same campus) for the year in *cohort_start* . This number is only accurate for given *cohort_start* , since schools can open and close on a campus in any given year.
