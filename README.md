@@ -62,24 +62,25 @@ and DBNs using regular expressions.
 14. Standardized each address by extracting the borough from the DBN and replacing the neighborhood name with the borough. Fixed any lingering mistakes in addresses using regex and a for loop to clean certain addresses.
 15. Geocoded the 294 addresses using the "geocode_OSM" function
 16. Combined the graduation data and the latitude/longitude coordinates by "DBN"
-17. Created a variable "total_schools_on_campus" to count the number of schools located at the same latitude/longitude within a given year (cohort_start)
-18. Created a variable "school_floor" to assign a "floor" (number) to each school within a campus on a given year
-19. Remove any redundant variables and filter the data to only include the following group attributes: cohort size, graduation total, dropout total, and still enrolled total.
-20. Remove any NAs in the "value" column
-21. Split the dataset by cohort_type (graduation trajectory) and exported 5 excel files, one for each cohort type.
+17. Created a variable "campus_number" to assign each latitude/longitude a unique number within a given year (cohort_start)
+18. Created a variable "total_schools_on_campus" to count the number of schools located at the same latitude/longitude within a given year
+19. Created a variable "school_floor" to assign a "floor" (number) to each school within a campus on a given year
+20. Remove any redundant variables and filter the data to only include the following group attributes: cohort size, graduation total and rate, dropout total and rate, and still enrolled total and rate.
+21. Write the data to an Excel file
 
-## About the Final Datasets
+## About the Final Dataset
 
-The final datasets can be found in the ["data/processed" folder](https://github.com/amanda-mari/nyc-high-school-grad-rates/tree/main/data/processed). There are 5 Excel files for graduation outcomes. Each file is for a cohort trajectory type i.e. 4 year June, 5 year August
+The final dataset can be found in the ["data/processed" folder](https://github.com/amanda-mari/nyc-high-school-grad-rates/tree/main/data/processed). It is titled "nyc_hs_grad_data.xlsx" It contains data on the group size and graduation results for several different cohort trajectories and groups of students.
 
-These files contain data on 553 NYC high schools within 294 campuses. Each row is a count of a group attribute for the given school, student start year, student trajectory, and student group.
+This file contain data on 553 NYC high schools within almost 300 campuses.
 
 Each file contains the following variables:
 
-- *lat* contains the latitude of the school
-- *lon* contains the longitude of the school
 - *borough* contains the borough of the school, this information was extracted from the DBN (more information can be found [here](https://teachnyc.zendesk.com/hc/en-us/articles/360053601831-What-is-a-DBN-District-Borough-Number-) )
 - *zip_code* contains the zip code of the school
+- *lat* contains the latitude of the school
+- *lon* contains the longitude of the school
+- *campus_number* a number that represents a unique latitude/longitude for a school for the given year in *cohort_start* This number only makes grouping locations easier. This variable is not from the DOE and does not have any significance in that respect.
 - *total_schools_on_campus* Total number of schools located at the same latitude/longitude (in the same campus) for the year in *cohort_start* . This number is only accurate for given *cohort_start* , since schools can open and close on a campus in any given year.
 - *dbn* DBN (district borough number) of the school
 - *school_name* Name of the school
@@ -88,7 +89,14 @@ Each file contains the following variables:
 - *cohort_type*  This is the cohort trajectory that these students followed i.e. 4 year June, 5 year August, etc. There are 5 cohort trajectories in total, but each file only has one.
 - *cohort_group* There are 19 groupings of students. There is "All Students", as well as 5 ethnicities (Asian, Black, Multi-Racial, Native American, and White),
 ELL status (Never ELL, Former ELL, Ever ELL, ELL), Student with Disabilities (Not SWD, SWD), Economic Status (Econ Disadv, Not Econ Disadv), and Sex (Female, Male)
-- *group_attribute* This variable is a factor that has 4 levels. "group_size" is the size of the cohort group, "group_grad_total" is the total number of graduates from that cohort group, "group_dropout_total" is the total number of dropouts from the cohort group, and "group_still_enrolled_total" is the total number of students still enrolled from the cohort group. 
-- *value* These are the raw counts (not percentages) for the given school, cohort start, cohort type, cohort group, and attribute. Since data where students could possibly be identified were removed from the original data, some graduation outcomes are unavailable.
+- *group_size* The size of the entering *cohort_group* for the given school, cohort start year, cohort type, and cohort group. This is a raw count.
+- *group_grad_total* The total number of graduates for the given school, cohort start year, cohort type, and cohort group . This is a raw count.
+- *group_grad_rate* calculated by taking the *group_grad_total*/*group_size*. This is a percentage.
+- *group_dropout_total* The total number of students that dropped out for the given school, cohort start year, cohort type, and cohort group. This is a raw count.
+- *group_dropout_rate* calculated by taking the *group_dropout_total*/*group_size*. This is a percentage.
+- *group_still_enrolled_total* The total number of students still enrolled for the given school, cohort start year, cohort type, and cohort group. This is a raw count.
+- *group_still_enrolled_rate* calculated as *group_still_enrolled_total*/*group_size*. This is a percentage.
+
+For the variables *group_grad_total*, *group_grad_rate*, *group_dropout_total*, *group_dropout_rate*, *group_still_enrolled_total*, and *group_still_enrolled_rate* data where students could possibly be identified were removed from the original data (value < 5), so some graduation outcomes are unavailable.
 
 
