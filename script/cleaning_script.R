@@ -631,6 +631,11 @@ hs_data <- hs_data[order(
 # is located in real life), we will do this by year since new schools can open and
 # old schools can close in any given year,
 
+# for each year, assign each campus (unique latitude and longitude) a number
+hs_data <-hs_data %>% 
+  group_by(cohort_start) %>% 
+  mutate(campus_number= match(lat_lon, sort(unique(lat_lon))))
+
 # find the number of schools located in each campus for each year
 
 hs_data <- hs_data %>%
@@ -650,44 +655,37 @@ hs_data <- hs_data %>%
 hs_data <- as.data.frame(hs_data)
 
 hs_data <- hs_data[, c(
-  "lat", "lon", "borough", "zip_code",
+  "borough", "zip_code","lat", "lon", "campus_number",  
   "total_schools_on_campus", "dbn",
   "school_name", "school_floor", "cohort_start",
   "cohort_type", "cohort_group",
   "group_attribute", "value"
 )]
 
-# only keeping cohort size, graduation, dropout, and still enrolled totals
+# Exporting Data  --------------------------
 
-hs_data <- hs_data[hs_data$group_attribute %in% c(
-  "group_size", "group_grad_total",
-  "group_dropout_total", "group_still_enrolled_total"
+# I am only interested in the cohort group size and the graduation,
+# dropout, and still enrolled totals and rates.
+
+hs_data <-hs_data[hs_data$group_attribute %in% c(
+  "group_size", "group_grad_total","group_grad_rate",
+  "group_dropout_total", "percent_cohort_dropout",
+  "group_still_enrolled_total", "percent_cohort_still_enrolled"
 ), ]
 
+hs_data <-hs_data %>% pivot_wider(names_from = group_attribute, values_from=value)
 
-# dropping unused attributes
+hs_data <-hs_data[, c("borough", "zip_code","lat", "lon", "campus_number",
+            "total_schools_on_campus", "dbn",
+            "school_name", "school_floor", "cohort_start",
+            "cohort_type", "cohort_group", "group_size" ,"group_grad_total",
+            "group_grad_rate", "group_dropout_total", "percent_cohort_dropout",
+            "group_still_enrolled_total", "percent_cohort_still_enrolled")]
 
-hs_data$group_attribute <- factor(hs_data$group_attribute)
-
-# removing NA values (originally 's') to save space
-
-hs_data <- hs_data[!is.na(hs_data$value), ]
-
-
-
-# Exporting the Data --------------------------
-
-
-split_by_cohort_type <- split(hs_data, list(hs_data$cohort_type))
+hs_data <-hs_data %>% rename(group_dropout_rate=percent_cohort_dropout,
+              group_still_enrolled_rate=percent_cohort_still_enrolled)
 
 
-names(split_by_cohort_type) <- c(
-  "four_year_august", "four_year_june",
-  "five_year_august", "five_year_june",
-  "six_year_june"
-)
 
+write.xlsx(hs_data, "data/processed/nyc_hs_grad_data.xlsx")
 
-for (type in names(split_by_cohort_type)) {
-  openxlsx::write.xlsx(split_by_cohort_type[[type]], paste0("data/processed/", type, "_data.xlsx"))
-}
