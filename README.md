@@ -60,7 +60,7 @@ and DBNs using regular expressions.
 12. Use webscraping to find the 49 remaining addresses not in any of the PDFs. 
 13. Manually input the 4 addresses that were not found in steps 10 or 12.
 14. Standardized each address by extracting the borough from the DBN and replacing the neighborhood name with the borough. Fixed any lingering mistakes in addresses using regex and a for loop to clean certain addresses.
-15. Geocoded the 294 addresses using the "geocode_OSM" function
+15. Geocoded the addresses using the "geocode_OSM" function
 16. Combined the graduation data and the latitude/longitude coordinates by "DBN"
 17. Created a variable "campus_number" to assign each latitude/longitude a unique number within a given year (cohort_start)
 18. Created a variable "total_schools_on_campus" to count the number of schools located at the same latitude/longitude within a given year
