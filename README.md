@@ -97,6 +97,6 @@ ELL status (Never ELL, Former ELL, Ever ELL, ELL), Student with Disabilities (No
 - *group_still_enrolled_total* The total number of students still enrolled for the given school, cohort start year, cohort type, and cohort group. This is a raw count.
 - *group_still_enrolled_rate* calculated as *group_still_enrolled_total*/*group_size*. This is a percentage.
 
-For the variables *group_grad_total*, *group_grad_rate*, *group_dropout_total*, *group_dropout_rate*, *group_still_enrolled_total*, and *group_still_enrolled_rate* data where students could possibly be identified were removed from the original data (value < 5), so some graduation outcomes are unavailable.
+For the variables *group_grad_total*, *group_grad_rate*, *group_dropout_total*, *group_dropout_rate*, *group_still_enrolled_total*, and *group_still_enrolled_rate* data where students could possibly be identified were removed from the original data (where the raw count variables were < 5), so some graduation outcomes are unavailable.
 
 
