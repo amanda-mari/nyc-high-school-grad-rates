@@ -397,7 +397,7 @@ for (i in seq_along(addresses_to_find$dbn)) {
   tryCatch(
     {
       read_search_urls[[i]] <- read_html(search_urls[[i]])
-      Sys.sleep(3)
+      Sys.sleep(2)
     },
     error = function(e) {
       NULL
@@ -544,7 +544,8 @@ address_unstandardized <- list(
   "1010 rev. polite avenue, Bronx, NY, 10459 ",
   "1180 rev. j.a. polite ave., Bronx, NY, 10459 ",
   "99 terrace view avenue, Bronx, NY, 10463 ",
-  "2040 antin pl, Bronx, NY, 10462 "
+  "2040 antin pl, Bronx, NY, 10462 ",
+  "145 west 84 street, Manhattan, NY, 10024 "
 )
 
 address_standardized <- list(
@@ -565,7 +566,8 @@ address_standardized <- list(
   "1010 Reverend James A. Polite avenue, Bronx, NY, 10459",
   "1180 Reverend James A. Polite ave., Bronx, NY, 10459",
   "99 Terrace View Avenue, New York, New York, 10463",
-  "2040 Mercy College Place, Bronx, NY, 10462"
+  "2040 Mercy College Place, Bronx, NY, 10462",
+  "145 west 84th street, Manhattan, NY, 10024"
 )
 
 for (i in seq_along(address_unstandardized)) {
@@ -586,9 +588,10 @@ unique_addresses <- unique(all_addresses$clean_address)
 
 length(unique_addresses)
 
-# 302 addresses to find the lat/long coordinates for
+# 301 addresses to find the lat/long coordinates for
 
 all_lat_lon <- geocode_OSM(unique_addresses, keep.unfound = TRUE)
+
 
 
 
@@ -625,11 +628,8 @@ hs_data <- hs_data[order(
   hs_data$cohort_type, hs_data$cohort_group, hs_data$group_attribute
 ), ]
 
-# The goal of this project is to create a 3D visualization of high school graduation rates,
-# There are 553 schools total nested within 294 campuses. To make a 3D visualization possible,
-# we need to assign each school a floor within a campus (note: this is not necessarily where it
-# is located in real life), we will do this by year since new schools can open and
-# old schools can close in any given year,
+# The goal of this project is to create a spatial visualization of high school graduation rates,
+# There are 553 schools total nested within 293 campuses.
 
 # for each year, assign each campus (unique latitude and longitude) a number
 hs_data <-hs_data %>% 
@@ -643,21 +643,17 @@ hs_data <- hs_data %>%
   mutate(total_schools_on_campus = length(unique(dbn)))
 
 
-# for each year, assign each school within a campus a "floor"
-
-hs_data <- hs_data %>%
-  group_by(lat_lon, cohort_start) %>%
-  mutate(school_floor = match(dbn, sort(unique(dbn))))
 
 
 # Filtering the Data --------------------------
 
 hs_data <- as.data.frame(hs_data)
 
+
 hs_data <- hs_data[, c(
-  "borough", "zip_code","lat", "lon", "campus_number",  
+  "borough", "lat", "lon", "campus_number",  
   "total_schools_on_campus", "dbn",
-  "school_name", "school_floor", "cohort_start",
+  "school_name", "cohort_start",
   "cohort_type", "cohort_group",
   "group_attribute", "value"
 )]
@@ -675,16 +671,15 @@ hs_data <-hs_data[hs_data$group_attribute %in% c(
 
 hs_data <-hs_data %>% pivot_wider(names_from = group_attribute, values_from=value)
 
-hs_data <-hs_data[, c("borough", "zip_code","lat", "lon", "campus_number",
+hs_data <-hs_data[, c("borough","lat", "lon", "campus_number",
             "total_schools_on_campus", "dbn",
-            "school_name", "school_floor", "cohort_start",
+            "school_name", "cohort_start",
             "cohort_type", "cohort_group", "group_size" ,"group_grad_total",
             "group_grad_rate", "group_dropout_total", "percent_cohort_dropout",
             "group_still_enrolled_total", "percent_cohort_still_enrolled")]
 
 hs_data <-hs_data %>% rename(group_dropout_rate=percent_cohort_dropout,
               group_still_enrolled_rate=percent_cohort_still_enrolled)
-
 
 
 write.xlsx(hs_data, "data/processed/nyc_hs_grad_data.xlsx")
