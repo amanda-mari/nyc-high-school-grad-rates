@@ -1,5 +1,5 @@
 # New York City High School Graduation Rates
-This project uses data from the NYC Department of Education on NYC high school graduation results and combines it with the spatial coordinates of each school.The goal of merging these two pieces of data is to create a 3D visualization of graduation results in NYC. 
+This project uses data from the NYC Department of Education on NYC high school graduation results and combines it with the spatial coordinates of each school.The goal of merging these two pieces of data is to create a spatial map of graduation results overtime in NYC. 
 
 ### Data Sources
 
@@ -64,9 +64,8 @@ and DBNs using regular expressions.
 16. Combined the graduation data and the latitude/longitude coordinates by "DBN"
 17. Created a variable "campus_number" to assign each latitude/longitude a unique number within a given year (cohort_start)
 18. Created a variable "total_schools_on_campus" to count the number of schools located at the same latitude/longitude within a given year
-19. Created a variable "school_floor" to assign a "floor" (number) to each school within a campus on a given year
-20. Remove any redundant variables and filter the data to only include the following group attributes: cohort size, graduation total and rate, dropout total and rate, and still enrolled total and rate.
-21. Write the data to an Excel file
+19. Remove any redundant variables and filter the data to only include the following group attributes: cohort size, graduation total and rate, dropout total and rate, and still enrolled total and rate.
+20. Write the data to an Excel file
 
 ## About the Final Dataset
 
@@ -77,14 +76,12 @@ This file contain data on 553 NYC high schools within almost 300 campuses.
 Each file contains the following variables:
 
 - *borough* contains the borough of the school, this information was extracted from the DBN (more information can be found [here](https://teachnyc.zendesk.com/hc/en-us/articles/360053601831-What-is-a-DBN-District-Borough-Number-) )
-- *zip_code* contains the zip code of the school
 - *lat* contains the latitude of the school
 - *lon* contains the longitude of the school
 - *campus_number* a number that represents a unique latitude/longitude for a school for the given year in *cohort_start* This number only makes grouping locations easier. This variable is not from the DOE and does not have any significance in that respect.
 - *total_schools_on_campus* Total number of schools located at the same latitude/longitude (in the same campus) for the year in *cohort_start* . This number is only accurate for given *cohort_start* , since schools can open and close on a campus in any given year.
 - *dbn* DBN (district borough number) of the school
 - *school_name* Name of the school
-- *school_floor* This is a sequenced variable to count the number of schools on a campus for the year in *cohort_start* i.e. if a campus has 3 schools in it in the *cohort_start* 2006, the first school will have *school_floor*=1, the second will have *school_floor*=2, and the third will have *school_floor*=3. **This variable is not an accurate representation of where the school is located on campus, it serves as the third dimension for mapping purposes only**
 - *cohort_start* This is the year that these students entered the school. It starts in the year 2001 and ends with 2016.
 - *cohort_type*  This is the cohort trajectory that these students followed i.e. 4 year June, 5 year August, etc. There are 5 cohort trajectories in total, but each file only has one.
 - *cohort_group* There are 19 groupings of students. There is "All Students", as well as 5 ethnicities (Asian, Black, Multi-Racial, Native American, and White),
