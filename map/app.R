@@ -4,10 +4,6 @@ library("leaflet")
 library("here")
 library("tidyverse")
 library("readxl")
-library("sp")
-library("htmlwidgets")
-library("colorRamps")
-library("sf")
 
 data <- readxl::read_excel(here::here("map/data/nyc_hs_grad_data.xlsx"))
 
