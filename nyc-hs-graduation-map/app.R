@@ -1,10 +1,14 @@
 # Load packages ---
 library("shiny")
+library("httr")
 library("leaflet")
 library("tidyverse")
 library("readxl")
 
-data <- readxl::read_excel("data/nyc_hs_grad_data.xlsx")
+
+url <- "https://github.com/amanda-mari/nyc-high-school-grad-rates/raw/main/data/processed/nyc_hs_grad_data.xlsx"
+httr::GET(url, write_disk(temp_file <- tempfile(fileext = ".xlsx")))
+data <- readxl::read_excel(temp_file, 1L)
 
 # jittering latitude and longitude so that multiple schools within a location
 # can be viewed when zooming in
