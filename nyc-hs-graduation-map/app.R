@@ -1,11 +1,10 @@
 # Load packages ---
 library("shiny")
 library("leaflet")
-library("here")
 library("tidyverse")
 library("readxl")
 
-data <- readxl::read_excel(here::here("nyc-hs-graduation-map/data/nyc_hs_grad_data.xlsx"))
+data <- readxl::read_excel("data/nyc_hs_grad_data.xlsx")
 
 # jittering latitude and longitude so that multiple schools within a location
 # can be viewed when zooming in
