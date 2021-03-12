@@ -5,7 +5,7 @@ library("here")
 library("tidyverse")
 library("readxl")
 
-data <- readxl::read_excel(here::here("map/data/nyc_hs_grad_data.xlsx"))
+data <- readxl::read_excel(here::here("nyc-hs-graduation-map/data/nyc_hs_grad_data.xlsx"))
 
 # jittering latitude and longitude so that multiple schools within a location
 # can be viewed when zooming in
@@ -117,7 +117,7 @@ server <- function(input, output, session) {
         lng = filtered_data()$lon2,
         lat = filtered_data()$lat2,
         stroke = TRUE,
-        opacity = .8,
+        opacity = .7,
         fillOpacity = .6,
         radius = 6,
         label = paste0(
@@ -129,7 +129,7 @@ server <- function(input, output, session) {
       addLegend("bottomleft",
         pal = color_palette, bins = c(0, 20, 40, 60, 80, 100),
         opacity = 1, values = c(0, 100),
-        title = if (input$cohort_group=="All Students") {
+        title = if (input$cohort_group == "All Students") {
           paste(
             input$cohort_type, "<br>", full_name_outcome_variable,
             "<br> for", input$cohort_group, "<br> starting in", input$cohort_start
@@ -140,9 +140,9 @@ server <- function(input, output, session) {
             input$cohort_type, "<br>", full_name_outcome_variable,
             "<br> for", input$cohort_group, "Students", "<br> starting in", input$cohort_start
           )
-        }, 
+        },
         labFormat = labelFormat(suffix = "%")
-      ) 
+      )
   })
 }
 
