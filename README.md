@@ -1,6 +1,8 @@
 # New York City High School Graduation Rates
 This project uses data from the NYC Department of Education on NYC high school graduation results and combines it with the spatial coordinates of each school.The goal of merging these two pieces of data is to create a spatial map of graduation results overtime in NYC. 
 
+Click [here](https://amandamari.shinyapps.io/nyc-hs-graduation-map/) to view the app on shinyapps.io
+
 ### Data Sources
 
 The original data is from [New York City's Infohub.](https://infohub.nyced.org/reports/academics/graduation-results) It is from the "School" Excel file on that page. (Read the read-me on the first tab of that Excel workbook to learn more about this data.)
