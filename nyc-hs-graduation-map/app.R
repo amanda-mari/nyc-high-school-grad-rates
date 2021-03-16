@@ -1,14 +1,12 @@
 # Load packages ---
 library("shiny")
-library("httr")
 library("leaflet")
 library("tidyverse")
-library("readxl")
+library("data.table")
 
 
-url <- "https://github.com/amanda-mari/nyc-high-school-grad-rates/raw/main/data/processed/nyc_hs_grad_data.xlsx"
-httr::GET(url, write_disk(temp_file <- tempfile(fileext = ".xlsx")))
-data <- readxl::read_excel(temp_file, 1L)
+data <- fread("data/nyc_hs_grad_data.csv")
+
 
 # jittering latitude and longitude so that multiple schools within a location
 # can be viewed when zooming in
@@ -41,11 +39,18 @@ ui <- fluidPage(
     mainPanel(
       leafletOutput("my_map"),
       br(),
-      br(),
+      br()
+    )
+  ),
+  fluidRow(
+    column(
+      5,
       dataTableOutput("filtered_data")
     )
   )
 )
+
+
 
 # Server
 
@@ -82,7 +87,7 @@ server <- function(input, output, session) {
       df()$cohort_type == input$cohort_type &
       df()$cohort_start == input$cohort_start, ] %>%
       select(
-        lat, lon, campus_number, total_schools_on_campus, school_name,
+        lat, lon, borough, campus_number, total_schools_on_campus, school_name,
         cohort_group, cohort_start, cohort_type, group_size,
         input$cohort_graduation_outcome
       )
