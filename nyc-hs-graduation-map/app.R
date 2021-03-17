@@ -17,7 +17,8 @@ data$lon2 <- jitter(data$lon, factor = 32)
 # Creating UI
 
 ui <- fluidPage(
-  titlePanel(strong("NYC High School Graduation Results")),
+  titlePanel(strong("The Distribution of Diplomas: A Visualization of 
+                    NYC High School Graduation Results")),
 
   sidebarLayout(
     position = "left",
